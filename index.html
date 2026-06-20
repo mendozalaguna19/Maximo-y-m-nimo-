@@ -3,169 +3,214 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calculadora de Máximos y Mínimos de Inventario</title>
+    <title>Calculadora de Inventario Avanzada</title>
     <style>
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f4f6f9;
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f7f6;
             color: #333;
-            margin: 0;
-            padding: 20px;
         }
         .container {
             max-width: 600px;
-            background: #fff;
-            margin: 20px auto;
-            padding: 30px;
+            background: white;
+            padding: 20px;
             border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
         h2 {
-            text-align: center;
             color: #2c3e50;
-            margin-bottom: 25px;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 8px;
         }
         .form-group {
             margin-bottom: 15px;
         }
         label {
             display: block;
+            font-weight: bold;
             margin-bottom: 5px;
-            font-weight: 600;
         }
-        input, select {
+        input[type="number"], select {
             width: 100%;
-            padding: 10px;
+            padding: 8px;
             border: 1px solid #ccc;
             border-radius: 4px;
             box-sizing: border-box;
-            font-size: 14px;
+        }
+        .part-number-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            background: #f9f9f9;
+            padding: 8px;
+            border-radius: 4px;
+            border-left: 4px solid #3498db;
+        }
+        .part-number-row label {
+            margin-bottom: 0;
+            flex: 1;
+        }
+        .part-number-row input {
+            width: 120px;
         }
         button {
-            width: 100%;
-            padding: 12px;
             background-color: #3498db;
             color: white;
+            padding: 10px 15px;
             border: none;
             border-radius: 4px;
-            font-size: 16px;
             cursor: pointer;
-            font-weight: bold;
-            margin-top: 15px;
+            font-size: 16px;
+            width: 100%;
         }
         button:hover {
             background-color: #2980b9;
         }
-        .results {
-            margin-top: 25px;
-            padding: 20px;
-            background-color: #ecf0f1;
-            border-radius: 6px;
+        #resultados {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e8f4f8;
+            border-radius: 4px;
             display: none;
         }
-        .results h3 {
-            margin-top: 0;
-            color: #2c3e50;
-            border-bottom: 2px solid #bdc3c7;
-            padding-bottom: 5px;
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
         }
-        .result-item {
-            display: flex;
-            justify-content: space-between;
-            margin: 10px 0;
-            font-size: 16px;
+        table, th, td {
+            border: 1px solid #bdc3c7;
         }
-        .result-item span {
-            font-weight: bold;
-            color: #2c3e50;
+        th, td {
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #3498db;
+            color: white;
         }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Control de Máximos y Mínimos</h2>
+    <h2>Control de Inventario por Familias</h2>
     
     <div class="form-group">
-        <label for="periodo">Tipo de Demanda:</label>
-        <select id="periodo" onchange="actualizarLabels()">
-            <option value="mes">Mensual</option>
-            <option value="semana">Semanal</option>
-        </select>
+        <label for="ordenesSemanales">Cantidad de órdenes solicitadas (por semana/mes):</label>
+        <input type="number" id="ordenesSemanales" value="10" min="0">
     </div>
 
     <div class="form-group">
-        <label id="lbl-demanda" for="demanda">Demanda Promedio Mensual:</label>
-        <input type="number" id="demanda" placeholder="Ej. 500" min="0">
+        <label for="familiaSelect">Seleccione la Familia de Materiales:</label>
+        <select id="familiaSelect" onchange="cargarPartNumbers()">
+            <option value="">-- Seleccione una opción --</option>
+            <option value="mirror">Mirror</option>
+            </select>
     </div>
 
-    <div class="form-group">
-        <label id="lbl-entrega" for="entrega">Tiempo de Entrega del Proveedor (en meses):</label>
-        <input type="number" id="entrega" step="0.1" placeholder="Ej. 0.5 (medio mes)" min="0">
+    <div id="contenedorPartNumbers"></div>
+
+    <div class="form-group" style="margin-top: 20px;">
+        <button type="button" onclick="calcularNiveles()">Calcular Niveles Totales</button>
     </div>
 
-    <div class="form-group">
-        <label for="seguridad">Inventario de Seguridad (Unidades):</label>
-        <input type="number" id="seguridad" placeholder="Ej. 50" min="0">
-    </div>
-
-    <div class="form-group">
-        <label for="lote">Cantidad Estándar de Pedido (Lote Óptimo):</label>
-        <input type="number" id="lote" placeholder="Ej. 300" min="0">
-    </div>
-
-    <button onclick="calcularInventario()">Calcular Niveles</button>
-
-    <div class="results" id="resultados">
-        <h3>Resultados del Análisis</h3>
-        <div class="result-item">Inventario Mínimo (Seguridad): <span id="res-min">0</span></div>
-        <div class="result-item">Punto de Reorden (Hacer pedido): <span id="res-reorden">0</span></div>
-        <div class="result-item">Inventario Máximo Sugerido: <span id="res-max">0</span></div>
+    <div id="resultados">
+        <h3>Demanda Total Calculada</h3>
+        <p id="resumenOrdenes"></p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Part Number</th>
+                    <th>Cant. por Orden</th>
+                    <th>Demanda Total Req.</th>
+                </tr>
+            </thead>
+            <tbody id="tablaCuerpo">
+                </tbody>
+        </table>
     </div>
 </div>
 
 <script>
-function actualizarLabels() {
-    const periodo = document.getElementById('periodo').value;
-    const lblDemanda = document.getElementById('lbl-demanda');
-    const lblEntrega = document.getElementById('lbl-entrega');
+// BASE DE DATOS MODIFICABLE: Aquí defines las familias y sus Part Numbers correspondientes
+const baseDatosFamilias = {
+    mirror: [
+        "PN-01", "PN-02", "PN-03", "PN-04", "PN-05", 
+        "PN-06", "PN-07", "PN-08", "PN-09", "PN-10", 
+        "PN-11", "PN-12", "PN-13", "PN-14", "PN-15", 
+        "PN-16", "PN-17"
+    ]
+    // Para agregar otra familia en el futuro, solo pones una coma arriba y escribes:
+    // sensores: ["PN-S1", "PN-S2", "PN-S3"]
+};
 
-    if (periodo === 'mes') {
-        lblDemanda.innerText = "Demanda Promedio Mensual:";
-        lblEntrega.innerText = "Tiempo de Entrega del Proveedor (en meses):";
-        document.getElementById('entrega').placeholder = "Ej. 0.5 (medio mes)";
-    } else {
-        lblDemanda.innerText = "Demanda Promedio Semanal:";
-        lblEntrega.innerText = "Tiempo de Entrega del Proveedor (en semanas):";
-        document.getElementById('entrega').placeholder = "Ej. 2 (dos semanas)";
-    }
+// Función que dibuja en pantalla los 17 inputs cuando seleccionas "Mirror"
+function cargarPartNumbers() {
+    const familiaSeleccionada = document.getElementById("familiaSelect").value;
+    const contenedor = document.getElementById("contenedorPartNumbers");
+    
+    // Limpiar lo que haya antes
+    contenedor.innerHTML = "";
+    document.getElementById("resultados").style.display = "none";
+
+    if (!familiaSeleccionada || !baseDatosFamilias[familiaSeleccionada]) return;
+
+    const listaPN = baseDatosFamilias[familiaSeleccionada];
+    
+    let htmlContenido = `<h3>Componentes de la Familia: ${familiaSeleccionada.toUpperCase()}</h3>`;
+    htmlContenido += `<p style="font-size:13px; color:#7f8c8d;">Ingrese la cantidad estándar que consume <b>UNA SOLA orden</b> para cada número de parte:</p>`;
+
+    listaPN.forEach(pn => {
+        htmlContenido += `
+            <div class="part-number-row">
+                <label for="input_${pn}">${pn}:</label>
+                <input type="number" id="input_${pn}" class="input-pn-cantidad" data-pn="${pn}" value="100" min="0">
+            </div>
+        `;
+    });
+
+    contenedor.innerHTML = htmlContenido;
 }
 
-function calcularInventario() {
-    // Obtener valores de los inputs
-    const demanda = parseFloat(document.getElementById('demanda').value) || 0;
-    const entrega = parseFloat(document.getElementById('entrega').value) || 0;
-    const seguridad = parseFloat(document.getElementById('seguridad').value) || 0;
-    const lote = parseFloat(document.getElementById('lote').value) || 0;
-
-    if (demanda <= 0 || entrega <= 0) {
-        alert("Por favor, ingresa valores válidos para la demanda y el tiempo de entrega.");
+// Función que toma las órdenes, multiplica por la cantidad de cada PN y muestra la tabla final
+function calcularNiveles() {
+    const ordenes = parseFloat(document.getElementById("ordenesSemanales").value) || 0;
+    const inputsCantidad = document.querySelectorAll(".input-pn-cantidad");
+    const tablaCuerpo = document.getElementById("tablaCuerpo");
+    
+    if (inputsCantidad.length === 0) {
+        alert("Por favor, seleccione una familia primero e ingrese cantidades.");
         return;
     }
 
-    // Cálculos
-    const puntoReorden = Math.ceil((demanda * entrega) + seguridad);
-    const inventarioMinimo = seguridad; 
-    const inventarioMaximo = Math.ceil(puntoReorden + lote);
+    // Limpiar tabla previa
+    tablaCuerpo.innerHTML = "";
 
-    // Mostrar resultados
-    document.getElementById('res-min').innerText = inventarioMinimo + " unidades";
-    document.getElementById('res-reorden').innerText = puntoReorden + " unidades";
-    document.getElementById('res-max').innerText = inventarioMaximo + " unidades";
-    
-    document.getElementById('resultados').style.display = 'block';
+    inputsCantidad.forEach(input => {
+        const pn = input.getAttribute("data-pn");
+        const cantPorOrden = parseFloat(input.value) || 0;
+        const demandaTotal = cantPorOrden * ordenes; // Aquí se hace la multiplicación automática
+
+        // Crear fila de resultado
+        const fila = document.createElement("tr");
+        fila.innerHTML = `
+            <td><b>${pn}</b></td>
+            <td>${cantPorOrden}</td>
+            <td><mark style="background-color: #f1c40f; padding: 2px 5px; font-weight: bold;">${demandaTotal}</mark></td>
+        `;
+        tablaCuerpo.appendChild(fila);
+    });
+
+    // Mostrar sección de resultados
+    document.getElementById("resumenOrdenes").innerText = `Cálculo realizado para un lote de ${ordenes} órdenes totales.`;
+    document.getElementById("resultados").style.display = "block";
 }
 </script>
 
 </body>
 </html>
+
+
