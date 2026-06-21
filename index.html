@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calculadora de Inventario Avanzada</title>
+    <title>Control Avanzado de Inventario y Capacidad - Almacén</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -12,32 +12,38 @@
             color: #333;
         }
         .container {
-            max-width: 950px; /* Un poco más ancho para albergar las nuevas columnas de tiempos */
+            max-width: 1050px; /* Más ancho para la visualización de tiempos cruzados */
             background: white;
-            padding: 20px;
+            padding: 25px;
             border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.15);
             margin: auto;
         }
         h2 {
             color: #2c3e50;
             border-bottom: 2px solid #3498db;
             padding-bottom: 8px;
+            margin-top: 0;
+        }
+        h3 {
+            color: #34495e;
+            margin-top: 20px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
         }
         .form-group {
             margin-bottom: 15px;
         }
-        .flex-group {
-            display: flex;
+        .grid-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
             gap: 15px;
-        }
-        .flex-group .form-group {
-            flex: 1;
         }
         label {
             display: block;
             font-weight: bold;
             margin-bottom: 5px;
+            font-size: 14px;
         }
         input[type="number"], select {
             width: 100%;
@@ -50,9 +56,9 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             background: #f9f9f9;
-            padding: 8px;
+            padding: 8px 12px;
             border-radius: 4px;
             border-left: 4px solid #3498db;
             gap: 10px;
@@ -61,45 +67,67 @@
             margin-bottom: 0;
             flex: 1;
             font-weight: bold;
+            color: #2c3e50;
         }
         .part-number-row-inputs {
             display: flex;
-            gap: 8px;
+            gap: 10px;
             align-items: center;
             font-size: 12px;
             color: #555;
         }
+        .part-number-row-inputs div {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
         .part-number-row-inputs input {
-            width: 75px;
-            padding: 4px;
+            width: 80px;
+            padding: 5px;
             border: 1px solid #ccc;
             border-radius: 4px;
+            margin-top: 2px;
         }
         button {
             background-color: #3498db;
             color: white;
-            padding: 10px 15px;
+            padding: 12px 15px;
             border: none;
             border-radius: 4px;
             cursor: pointer;
             font-size: 16px;
             width: 100%;
+            font-weight: bold;
         }
         button:hover {
             background-color: #2980b9;
         }
         #resultados {
-            margin-top: 20px;
-            padding: 15px;
+            margin-top: 25px;
+            padding: 20px;
             background-color: #e8f4f8;
-            border-radius: 4px;
+            border-radius: 6px;
             display: none;
+        }
+        .analisis-bloque {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .card-tiempo {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            border-top: 4px solid #2c3e50;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 10px;
+            margin-top: 15px;
             font-size: 13px;
+            background: white;
         }
         table, th, td {
             border: 1px solid #bdc3c7;
@@ -126,24 +154,246 @@
             border-radius: 3px;
             font-weight: bold;
         }
-        .viabilidad-ok {
-            background-color: #d4edda;
-            color: #155724;
-            padding: 12px;
+        .status-badge {
+            padding: 5px 10px;
             border-radius: 4px;
             font-weight: bold;
-            margin-bottom: 15px;
-            border-left: 5px solid #28a745;
+            font-size: 14px;
+            display: inline-block;
+            margin-top: 5px;
         }
-        .viabilidad-error {
-            background-color: #f8d7da;
-            color: #721c24;
-            padding: 12px;
-            border-radius: 4px;
-            font-weight: bold;
-            margin-bottom: 15px;
-            border-left:
-                
+        .status-ok { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .status-alert { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+        .status-danger { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Control Logístico de Inventarios (Máximos y Mínimos)</h2>
+    
+    <div class="grid-3">
+        <div class="form-group">
+            <label for="ordenesSemanales">Órdenes solicitadas (Semana):</label>
+            <input type="number" id="ordenesSemanales" value="10" min="0">
+        </div>
+        
+        <div class="form-group">
+            <label for="tiempoAlistamiento">Alistamiento Fijo por Orden (min):</label>
+            <input type="number" id="tiempoAlistamiento" value="30" min="0" title="Tiempo en entregar papeles, sacar cajas y despachar lo que ya está listo.">
+        </div>
+
+        <div class="form-group">
+            <label for="horasDisponibles">Horas Disponibles Almacén (Semana):</label>
+            <input type="number" id="horasDisponibles" value="40" min="0" step="0.5">
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label for="familiaSelect">Seleccione la Familia de Materiales:</label>
+        <select id="familiaSelect" onchange="cargarPartNumbers()">
+            <option value="">-- Seleccione una opción --</option>
+            <option value="mirror">Mirror</option>
+            <option value="emires">Emires</option> 
+        </select>
+    </div>
+
+    <div id="contenedorPartNumbers"></div>
+
+    <div class="form-group" style="margin-top: 20px;">
+        <button type="button" onclick="calcularTodo()">Calcular Niveles, Tiempos y Viabilidad de Carga</button>
+    </div>
+
+    <div id="resultados">
+        <h3>Reporte Operativo y Análisis de Tiempos</h3>
+        <p id="resumenOrdenes" style="font-size: 15px; margin-bottom: 15px;"></p>
+        
+        <div class="analisis-bloque">
+            <div class="card-tiempo">
+                <h4>🏃‍♂️ Escenario Con Stock (Ideal)</h4>
+                <p>Material ya segregado en racks. Solo ejecutas alistamiento y despacho físico.</p>
+                <p><b>Tiempo Total Requerido:</b> <span id="tiempoIdealHoras">0</span> horas</p>
+                <div id="statusIdeal"></div>
+            </div>
+            
+            <div class="card-tiempo">
+                <h4>🚨 Escenario Sin Stock (Desde Cero)</h4>
+                <p>No hay stock mínimo disponible. Debes imprimir, segregar pieza por pieza y luego alistar.</p>
+                <p><b>Tiempo Total Requerido:</b> <span id="tiempoCriticoHoras">0</span> horas</p>
+                <div id="statusCritico"></div>
+            </div>
+        </div>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Part Number</th>
+                    <th>Cant. x Orden</th>
+                    <th>Demanda Total</th>
+                    <th>Stock Mínimo <br><small>(3 Órdenes)</small></th>
+                    <th>Stock Máximo <br><small>(6 Órdenes)</small></th>
+                    <th>T. Impresión <br><small>(Total min)</small></th>
+                    <th>T. Segregación <br><small>(Total min)</small></th>
+                    <th>Tiempo Total PN <br><small>(Si se agota)</small></th>
+                </tr>
+            </thead>
+            <tbody id="tablaCuerpo">
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+const baseDatosFamilias = {
+    mirror: [
+        "PN-M01", "PN-M02", "PN-M03", "PN-M04", "PN-M05", 
+        "PN-M06", "PN-M07", "PN-M08", "PN-M09", "PN-M10", 
+        "PN-M11", "PN-M12", "PN-M13", "PN-M14", "PN-M15", 
+        "PN-M16", "PN-M17"
+    ],
+    emires: [
+        "PN-E01", "PN-E02", "PN-E03", "PN-E04", "PN-E05", 
+        "PN-E06", "PN-E07", "PN-E08", "PN-E09", "PN-E10", 
+        "PN-E11", "PN-E12", "PN-E13", "PN-E14", "PN-E15", 
+        "PN-E16", "PN-E17"
+    ]
+};
+
+function cargarPartNumbers() {
+    const familiaSeleccionada = document.getElementById("familiaSelect").value;
+    const contenedor = document.getElementById("contenedorPartNumbers");
+    
+    contenedor.innerHTML = "";
+    document.getElementById("resultados").style.display = "none";
+
+    if (!familiaSeleccionada || !baseDatosFamilias[familiaSeleccionada]) return;
+
+    const listaPN = baseDatosFamilias[familiaSeleccionada];
+    
+    let htmlContenido = `<h3>Componentes de la Familia: ${familiaSeleccionada.toUpperCase()}</h3>`;
+    htmlContenido += `<p style="font-size:13px; color:#7f8c8d; margin-bottom: 12px;">Defina las variables operativas de manufactura por pieza para <b>UNA SOLA</b> orden:</p>`;
+
+    listaPN.forEach(pn => {
+        htmlContenido += `
+            <div class="part-number-row">
+                <label for="cant_${pn}">${pn}</label>
+                <div class="part-number-row-inputs">
+                    <div>
+                        <span>Cant. x Orden:</span>
+                        <input type="number" id="cant_${pn}" class="ipn-cant" data-pn="${pn}" value="10" min="0">
+                    </div>
+                    <div>
+                        <span>Imp (min/pza):</span>
+                        <input type="number" id="imp_${pn}" value="0.2" min="0" step="0.01">
+                    </div>
+                    <div>
+                        <span>Segr (min/pza):</span>
+                        <input type="number" id="seg_${pn}" value="1.5" min="0" step="0.01">
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    contenedor.innerHTML = htmlContenido;
+}
+
+function calcularTodo() {
+    const ordenesSemanales = parseFloat(document.getElementById("ordenesSemanales").value) || 0;
+    const tiempoAlistamientoFijo = parseFloat(document.getElementById("tiempoAlistamiento").value) || 0;
+    const horasDisponibles = parseFloat(document.getElementById("horasDisponibles").value) || 0;
+    
+    const inputsCantidad = document.querySelectorAll(".ipn-cant");
+    const tablaCuerpo = document.getElementById("tablaCuerpo");
+    
+    if (inputsCantidad.length === 0) {
+        alert("Seleccione una familia antes de calcular.");
+        return;
+    }
+
+    tablaCuerpo.innerHTML = "";
+
+    let sumaMinutosImpresionTotal = 0;
+    let sumaMinutosSegregacionTotal = 0;
+
+    inputsCantidad.forEach(input => {
+        const pn = input.getAttribute("data-pn");
+        const cantPorOrden = parseFloat(input.value) || 0;
+        
+        // Obtener tiempos variables unitarios por cada material
+        const minImpresionPorPieza = parseFloat(document.getElementById(`imp_${pn}`).value) || 0;
+        const minSegregacionPorPieza = parseFloat(document.getElementById(`seg_${pn}`).value) || 0;
+        
+        // CÁLCULOS LOGÍSTICOS DE MATERIALES (MÁXIMOS Y MÍNIMOS)
+        const demandaTotalSemanal = cantPorOrden * ordenesSemanales;
+        const stockMinimoSeguridad = cantPorOrden * 3; // Amortiguador de 3 órdenes
+        const stockMaximoPermitido = cantPorOrden * 6; // Límite de control para 6 órdenes
+
+        // CÁLCULOS LOGÍSTICOS DE TIEMPOS VARIABLES
+        const tImpresionPN = demandaTotalSemanal * minImpresionPorPieza;
+        const tSegregacionPN = demandaTotalSemanal * minSegregacionPorPieza;
+        const tTotalVariablePN = tImpresionPN + tSegregacionPN;
+
+        sumaMinutosImpresionTotal += tImpresionPN;
+        sumaMinutosSegregacionTotal += tSegregacionPN;
+
+        // Renderizar la tabla de control
+        const fila = document.createElement("tr");
+        fila.innerHTML = `
+            <td style="text-align:left;"><b>${pn}</b></td>
+            <td>${cantPorOrden}</td>
+            <td><b>${demandaTotalSemanal}</b></td>
+            <td><span class="badge-min">${stockMinimoSeguridad}</span></td>
+            <td><span class="badge-max">${stockMaximoPermitido}</span></td>
+            <td>${tImpresionPN.toFixed(1)}</td>
+            <td>${tSegregacionPN.toFixed(1)}</td>
+            <td><b>${tTotalVariablePN.toFixed(1)} min</b></td>
+        `;
+        tablaCuerpo.appendChild(fila);
+    });
+
+    // CÁLCULO DE ESCENARIOS OPERATIVOS CRUZADOS
+    // 1. Escenario con Stock: Solo se consume el alistamiento fijo multiplicado por las órdenes totales.
+    const minutosTotalesIdeal = ordenesSemanales * tiempoAlistamientoFijo;
+    const horasTotalesIdeal = minutosTotalesIdeal / 60;
+
+    // 2. Escenario desde Cero: Órdenes * Alistamiento + Todo el trabajo de impresión y segregación manual.
+    const minutosTotalesCritico = minutosTotalesIdeal + sumaMinutosImpresionTotal + sumaMinutosSegregacionTotal;
+    const horasTotalesCritico = minutosTotalesCritico / 60;
+
+    // Actualizar paneles visuales superiores
+    document.getElementById("tiempoIdealHoras").innerText = horasTotalesIdeal.toFixed(2);
+    document.getElementById("tiempoCriticoHoras").innerText = horasTotalesCritico.toFixed(2);
+    
+    // Evaluar Viabilidad de Tiempos frente a la jornada disponible
+    const statusIdealDiv = document.getElementById("statusIdeal");
+    if (horasTotalesIdeal <= horasDisponibles) {
+        statusIdealDiv.className = "status-badge status-ok";
+        statusIdealDiv.innerText = "✓ OPERACIÓN VIABLE";
+    } else {
+        statusIdealDiv.className = "status-badge status-danger";
+        statusIdealDiv.innerText = "⚠️ SOBRECARGA";
+    }
+
+    const statusCriticoDiv = document.getElementById("statusCritico");
+    if (horasTotalesCritico <= horasDisponibles) {
+        statusCriticoDiv.className = "status-badge status-ok";
+        statusCriticoDiv.innerText = "✓ CAPACIDAD DISPONIBLE";
+    } else if (horasTotalesCritico <= horasDisponibles * 1.2) {
+        statusCriticoDiv.className = "status-badge status-alert";
+        statusCriticoDiv.innerText = "⚠️ TIEMPO AJUSTADO (+Horas Extra)";
+    } else {
+        statusCriticoDiv.className = "status-badge status-danger";
+        statusCriticoDiv.innerText = "❌ COLAPSO OPERATIVO (Requiere Stock Mínimo)";
+    }
+
+    document.getElementById("resumenOrdenes").innerHTML = `Análisis de carga realizado para un volumen de <b>${ordenesSemanales} órdenes semanales</b>.`;
+    document.getElementById("resultados").style.display = "block";
+}
+</script>
+
+</body>
+</html>  
 
 
 
