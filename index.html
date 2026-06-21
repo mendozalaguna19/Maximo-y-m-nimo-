@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control Avanzado de Inventario y Capacidad - Almacén</title>
+    <title>Control Avanzado de Inventario Dinámico</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -12,7 +12,7 @@
             color: #333;
         }
         .container {
-            max-width: 1050px; /* Más ancho para la visualización de tiempos cruzados */
+            max-width: 1100px;
             background: white;
             padding: 25px;
             border-radius: 8px;
@@ -34,16 +34,22 @@
         .form-group {
             margin-bottom: 15px;
         }
-        .grid-3 {
+        .grid-inputs {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: 15px;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            border: 1px solid #e9ecef;
         }
         label {
             display: block;
             font-weight: bold;
             margin-bottom: 5px;
-            font-size: 14px;
+            font-size: 13px;
+            color: #34495e;
         }
         input[type="number"], select {
             width: 100%;
@@ -170,22 +176,32 @@
 <body>
 
 <div class="container">
-    <h2>Control Logístico de Inventarios (Máximos y Mínimos)</h2>
+    <h2>Control Logístico de Inventarios con Máx/Mín Variables</h2>
     
-    <div class="grid-3">
+    <div class="grid-inputs">
         <div class="form-group">
-            <label for="ordenesSemanales">Órdenes solicitadas (Semana):</label>
+            <label for="ordenesSemanales">Órdenes Solicitadas (Semana):</label>
             <input type="number" id="ordenesSemanales" value="10" min="0">
         </div>
         
         <div class="form-group">
-            <label for="tiempoAlistamiento">Alistamiento Fijo por Orden (min):</label>
-            <input type="number" id="tiempoAlistamiento" value="30" min="0" title="Tiempo en entregar papeles, sacar cajas y despachar lo que ya está listo.">
+            <label for="tiempoAlistamiento">Alistamiento por Orden (min):</label>
+            <input type="number" id="tiempoAlistamiento" value="30" min="0">
         </div>
 
         <div class="form-group">
-            <label for="horasDisponibles">Horas Disponibles Almacén (Semana):</label>
-            <input type="number" id="horasDisponibles" value="40" min="0" step="0.5">
+            <label for="horasDisponibles">Horas Disponibles Almacén:</label>
+            <input type="number" id="horasDisponibles" value="48" min="0" step="0.5">
+        </div>
+
+        <div class="form-group">
+            <label for="coberturaMin" style="color: #e74c3c;">Cobertura MÍNIMA (Órdenes):</label>
+            <input type="number" id="coberturaMin" value="2" min="1" title="Cuántas órdenes quieres proteger en stock mínimo para esta familia">
+        </div>
+
+        <div class="form-group">
+            <label for="coberturaMax" style="color: #27ae60;">Cobertura MÁXIMA (Órdenes):</label>
+            <input type="number" id="coberturaMax" value="5" min="1" title="Límite máximo de órdenes permitidas en stock">
         </div>
     </div>
 
@@ -211,14 +227,14 @@
         <div class="analisis-bloque">
             <div class="card-tiempo">
                 <h4>🏃‍♂️ Escenario Con Stock (Ideal)</h4>
-                <p>Material ya segregado en racks. Solo ejecutas alistamiento y despacho físico.</p>
+                <p>Material ya segregado. Solo ejecutas alistamiento de la orden.</p>
                 <p><b>Tiempo Total Requerido:</b> <span id="tiempoIdealHoras">0</span> horas</p>
                 <div id="statusIdeal"></div>
             </div>
             
             <div class="card-tiempo">
                 <h4>🚨 Escenario Sin Stock (Desde Cero)</h4>
-                <p>No hay stock mínimo disponible. Debes imprimir, segregar pieza por pieza y luego alistar.</p>
+                <p>Stock agotado. Debes imprimir papeleo y segregar pieza por pieza.</p>
                 <p><b>Tiempo Total Requerido:</b> <span id="tiempoCriticoHoras">0</span> horas</p>
                 <div id="statusCritico"></div>
             </div>
@@ -230,9 +246,9 @@
                     <th>Part Number</th>
                     <th>Cant. x Orden</th>
                     <th>Demanda Total</th>
-                    <th>Stock Mínimo <br><small>(3 Órdenes)</small></th>
-                    <th>Stock Máximo <br><small>(6 Órdenes)</small></th>
-                    <th>T. Impresión <br><small>(Total min)</small></th>
+                    <th id="thMin">Stock Mínimo</th>
+                    <th id="thMax">Stock Máximo</th>
+                    <th>T. Impresión Doc. <br><small>(Total min)</small></th>
                     <th>T. Segregación <br><small>(Total min)</small></th>
                     <th>Tiempo Total PN <br><small>(Si se agota)</small></th>
                 </tr>
@@ -271,7 +287,7 @@ function cargarPartNumbers() {
     const listaPN = baseDatosFamilias[familiaSeleccionada];
     
     let htmlContenido = `<h3>Componentes de la Familia: ${familiaSeleccionada.toUpperCase()}</h3>`;
-    htmlContenido += `<p style="font-size:13px; color:#7f8c8d; margin-bottom: 12px;">Defina las variables operativas de manufactura por pieza para <b>UNA SOLA</b> orden:</p>`;
+    htmlContenido += `<p style="font-size:13px; color:#7f8c8d; margin-bottom: 12px;">Defina las variables operativas por pieza para <b>UNA SOLA</b> orden:</p>`;
 
     listaPN.forEach(pn => {
         htmlContenido += `
@@ -283,11 +299,11 @@ function cargarPartNumbers() {
                         <input type="number" id="cant_${pn}" class="ipn-cant" data-pn="${pn}" value="10" min="0">
                     </div>
                     <div>
-                        <span>Imp (min/pza):</span>
+                        <span>Imp Doc (min/pza):</span>
                         <input type="number" id="imp_${pn}" value="0.2" min="0" step="0.01">
                     </div>
                     <div>
-                        <span>Segr (min/pza):</span>
+                        <span>Segregación (min/pza):</span>
                         <input type="number" id="seg_${pn}" value="1.5" min="0" step="0.01">
                     </div>
                 </div>
@@ -303,6 +319,10 @@ function calcularTodo() {
     const tiempoAlistamientoFijo = parseFloat(document.getElementById("tiempoAlistamiento").value) || 0;
     const horasDisponibles = parseFloat(document.getElementById("horasDisponibles").value) || 0;
     
+    // Captura de coberturas dinámicas fijadas por el usuario
+    const cobMin = parseFloat(document.getElementById("coberturaMin").value) || 0;
+    const cobMax = parseFloat(document.getElementById("coberturaMax").value) || 0;
+    
     const inputsCantidad = document.querySelectorAll(".ipn-cant");
     const tablaCuerpo = document.getElementById("tablaCuerpo");
     
@@ -310,6 +330,10 @@ function calcularTodo() {
         alert("Seleccione una familia antes de calcular.");
         return;
     }
+
+    // Actualizar encabezados de la tabla para mostrar la configuración actual
+    document.getElementById("thMin").innerHTML = `Stock Mínimo <br><small>(${cobMin} Órdenes)</small>`;
+    document.getElementById("thMax").innerHTML = `Stock Máximo <br><small>(${cobMax} Órdenes)</small>`;
 
     tablaCuerpo.innerHTML = "";
 
@@ -320,16 +344,15 @@ function calcularTodo() {
         const pn = input.getAttribute("data-pn");
         const cantPorOrden = parseFloat(input.value) || 0;
         
-        // Obtener tiempos variables unitarios por cada material
         const minImpresionPorPieza = parseFloat(document.getElementById(`imp_${pn}`).value) || 0;
         const minSegregacionPorPieza = parseFloat(document.getElementById(`seg_${pn}`).value) || 0;
         
-        // CÁLCULOS LOGÍSTICOS DE MATERIALES (MÁXIMOS Y MÍNIMOS)
+        // FÓRMULAS DE MATERIALES TOTALMENTE VARIABLES:
         const demandaTotalSemanal = cantPorOrden * ordenesSemanales;
-        const stockMinimoSeguridad = cantPorOrden * 3; // Amortiguador de 3 órdenes
-        const stockMaximoPermitido = cantPorOrden * 6; // Límite de control para 6 órdenes
+        const stockMinimoSeguridad = cantPorOrden * cobMin; 
+        const stockMaximoPermitido = cantPorOrden * cobMax; 
 
-        // CÁLCULOS LOGÍSTICOS DE TIEMPOS VARIABLES
+        // TIEMPOS VARIABLES BASADOS EN LA DEMANDA SEMANAL
         const tImpresionPN = demandaTotalSemanal * minImpresionPorPieza;
         const tSegregacionPN = demandaTotalSemanal * minSegregacionPorPieza;
         const tTotalVariablePN = tImpresionPN + tSegregacionPN;
@@ -337,7 +360,6 @@ function calcularTodo() {
         sumaMinutosImpresionTotal += tImpresionPN;
         sumaMinutosSegregacionTotal += tSegregacionPN;
 
-        // Renderizar la tabla de control
         const fila = document.createElement("tr");
         fila.innerHTML = `
             <td style="text-align:left;"><b>${pn}</b></td>
@@ -352,20 +374,17 @@ function calcularTodo() {
         tablaCuerpo.appendChild(fila);
     });
 
-    // CÁLCULO DE ESCENARIOS OPERATIVOS CRUZADOS
-    // 1. Escenario con Stock: Solo se consume el alistamiento fijo multiplicado por las órdenes totales.
+    // CÁLCULO DE ESCENARIOS
     const minutosTotalesIdeal = ordenesSemanales * tiempoAlistamientoFijo;
     const horasTotalesIdeal = minutosTotalesIdeal / 60;
 
-    // 2. Escenario desde Cero: Órdenes * Alistamiento + Todo el trabajo de impresión y segregación manual.
     const minutosTotalesCritico = minutosTotalesIdeal + sumaMinutosImpresionTotal + sumaMinutosSegregacionTotal;
     const horasTotalesCritico = minutosTotalesCritico / 60;
 
-    // Actualizar paneles visuales superiores
     document.getElementById("tiempoIdealHoras").innerText = horasTotalesIdeal.toFixed(2);
     document.getElementById("tiempoCriticoHoras").innerText = horasTotalesCritico.toFixed(2);
     
-    // Evaluar Viabilidad de Tiempos frente a la jornada disponible
+    // Validaciones de Capacidad vs Jornada
     const statusIdealDiv = document.getElementById("statusIdeal");
     if (horasTotalesIdeal <= horasDisponibles) {
         statusIdealDiv.className = "status-badge status-ok";
@@ -384,16 +403,17 @@ function calcularTodo() {
         statusCriticoDiv.innerText = "⚠️ TIEMPO AJUSTADO (+Horas Extra)";
     } else {
         statusCriticoDiv.className = "status-badge status-danger";
-        statusCriticoDiv.innerText = "❌ COLAPSO OPERATIVO (Requiere Stock Mínimo)";
+        statusCriticoDiv.innerText = "❌ COLAPSO OPERATIVO (Subir Cobertura Stock Mínimo)";
     }
 
-    document.getElementById("resumenOrdenes").innerHTML = `Análisis de carga realizado para un volumen de <b>${ordenesSemanales} órdenes semanales</b>.`;
+    document.getElementById("resumenOrdenes").innerHTML = `Análisis para <b>${ordenesSemanales} órdenes semanales</b> utilizando coberturas variables de protección.`;
     document.getElementById("resultados").style.display = "block";
 }
 </script>
 
 </body>
-</html>  
+</html>
+
 
 
 
