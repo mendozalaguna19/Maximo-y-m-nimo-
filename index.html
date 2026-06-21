@@ -12,7 +12,7 @@
             color: #333;
         }
         .container {
-            max-width: 750px; /* Un poco más ancho para que quepa la tabla expandida */
+            max-width: 950px; /* Un poco más ancho para albergar las nuevas columnas de tiempos */
             background: white;
             padding: 20px;
             border-radius: 8px;
@@ -55,13 +55,25 @@
             padding: 8px;
             border-radius: 4px;
             border-left: 4px solid #3498db;
+            gap: 10px;
         }
         .part-number-row label {
             margin-bottom: 0;
             flex: 1;
+            font-weight: bold;
         }
-        .part-number-row input {
-            width: 120px;
+        .part-number-row-inputs {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            font-size: 12px;
+            color: #555;
+        }
+        .part-number-row-inputs input {
+            width: 75px;
+            padding: 4px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
         }
         button {
             background-color: #3498db;
@@ -87,7 +99,7 @@
             width: 100%;
             border-collapse: collapse;
             margin-top: 10px;
-            font-size: 14px;
+            font-size: 13px;
         }
         table, th, td {
             border: 1px solid #bdc3c7;
@@ -114,155 +126,24 @@
             border-radius: 3px;
             font-weight: bold;
         }
-    </style>
-</head>
-<body>
-
-<div class="container">
-    <h2>Control de Inventario por Familias (Máx / Mín)</h2>
-    
-    <div class="flex-group">
-        <div class="form-group">
-            <label for="ordenesSemanales">Órdenes solicitadas (Semana):</label>
-            <input type="number" id="ordenesSemanales" value="10" min="0">
-        </div>
-        
-        <div class="form-group">
-            <label for="tiempoPorOrden">Tiempo por Orden (Horas):</label>
-            <input type="number" id="tiempoPorOrden" value="2" min="0" step="0.1">
-        </div>
-    </div>
-
-    <div class="form-group">
-        <label for="familiaSelect">Seleccione la Familia de Materiales:</label>
-        <select id="familiaSelect" onchange="cargarPartNumbers()">
-            <option value="">-- Seleccione una opción --</option>
-            <option value="mirror">Mirror</option>
-            <option value="emires">Emires</option> </select>
-    </div>
-
-    <div id="contenedorPartNumbers"></div>
-
-    <div class="form-group" style="margin-top: 20px;">
-        <button type="button" onclick="calcularNiveles()">Calcular Niveles y Tiempos Totales</button>
-    </div>
-
-    <div id="resultados">
-        <h3>Reporte de Control de Inventario</h3>
-        <p id="resumenOrdenes"></p>
-        <p id="resumenTiempos" style="font-weight: bold; color: #2c3e50;"></p>
-        
-        <table>
-            <thead>
-                <tr>
-                    <th>Part Number</th>
-                    <th>Cant. x Orden</th>
-                    <th>Demanda Total</th>
-                    <th>Stock Mínimo <br><small>(3 Órdenes)</small></th>
-                    <th>Stock Máximo <br><small>(6 Órdenes)</small></th>
-                </tr>
-            </thead>
-            <tbody id="tablaCuerpo">
-            </tbody>
-        </table>
-    </div>
-</div>
-
-<script>
-// BASE DE DATOS: Añadí la familia Emires con los 17 números de parte
-const baseDatosFamilias = {
-    mirror: [
-        "PN-M01", "PN-M02", "PN-M03", "PN-M04", "PN-M05", 
-        "PN-M06", "PN-M07", "PN-M08", "PN-M09", "PN-M10", 
-        "PN-M11", "PN-M12", "PN-M13", "PN-M14", "PN-M15", 
-        "PN-M16", "PN-M17"
-    ],
-    emires: [
-        "PN-E01", "PN-E02", "PN-E03", "PN-E04", "PN-E05", 
-        "PN-E06", "PN-E07", "PN-E08", "PN-E09", "PN-E10", 
-        "PN-E11", "PN-E12", "PN-E13", "PN-E14", "PN-E15", 
-        "PN-E16", "PN-E17"
-    ]
-};
-
-function cargarPartNumbers() {
-    const familiaSeleccionada = document.getElementById("familiaSelect").value;
-    const contenedor = document.getElementById("contenedorPartNumbers");
-    
-    contenedor.innerHTML = "";
-    document.getElementById("resultados").style.display = "none";
-
-    if (!familiaSeleccionada || !baseDatosFamilias[familiaSeleccionada]) return;
-
-    const listaPN = baseDatosFamilias[familiaSeleccionada];
-    
-    let htmlContenido = `<h3>Componentes de la Familia: ${familiaSeleccionada.toUpperCase()}</h3>`;
-    htmlContenido += `<p style="font-size:13px; color:#7f8c8d;">Ingrese la cantidad estándar que consume <b>UNA SOLA orden</b> para cada número de parte:</p>`;
-
-    listaPN.forEach(pn => {
-        htmlContenido += `
-            <div class="part-number-row">
-                <label for="input_${pn}">${pn}:</label>
-                <input type="number" id="input_${pn}" class="input-pn-cantidad" data-pn="${pn}" value="10" min="0">
-            </div>
-        `;
-    });
-
-    contenedor.innerHTML = htmlContenido;
-}
-
-function calcularNiveles() {
-    const ordenes = parseFloat(document.getElementById("ordenesSemanales").value) || 0;
-    const tiempoOrden = parseFloat(document.getElementById("tiempoPorOrden").value) || 0;
-    const inputsCantidad = document.querySelectorAll(".input-pn-cantidad");
-    const tablaCuerpo = document.getElementById("tablaCuerpo");
-    
-    if (inputsCantidad.length === 0) {
-        alert("Por favor, seleccione una familia primero e ingrese cantidades.");
-        return;
-    }
-
-    tablaCuerpo.innerHTML = "";
-
-    // Cálculos de tiempo total estimado en manufactura
-    const tiempoTotalProduccion = ordenes * tiempoOrden;
-    const tiempoMinimoRequerido = 3 * tiempoOrden;
-    const tiempoMaximoPermitido = 6 * tiempoOrden;
-
-    inputsCantidad.forEach(input => {
-        const pn = input.getAttribute("data-pn");
-        const cantPorOrden = parseFloat(input.value) || 0;
-        
-        // FÓRMULAS APLICADAS:
-        const demandaTotal = cantPorOrden * ordenes;
-        const stockMinimo = cantPorOrden * 3; // Cobertura de seguridad para 3 órdenes
-        const stockMaximo = cantPorOrden * 6; // Límite superior para 6 órdenes
-
-        const fila = document.createElement("tr");
-        fila.innerHTML = `
-            <td style="text-align:left;"><b>${pn}</b></td>
-            <td>${cantPorOrden}</td>
-            <td><span style="font-weight:bold;">${demandaTotal}</span></td>
-            <td><span class="badge-min">${stockMinimo}</span></td>
-            <td><span class="badge-max">${stockMaximo}</span></td>
-        `;
-        tablaCuerpo.appendChild(fila);
-    });
-
-    // Actualizar textos informativos con tiempos y metas
-    document.getElementById("resumenOrdenes").innerHTML = `Cálculo para un lote de <b>${ordenes} órdenes</b> programadas en la semana.`;
-    document.getElementById("resumenTiempos").innerHTML = `
-        ⏱️ Tiempo total estimado para producción: ${tiempoTotalProduccion} horas.<br>
-        🚨 Ventana de Tiempo Mínima (3 órdenes): ${tiempoMinimoRequerido} horas de material.<br>
-        📦 Capacidad Máxima de Amortiguación (6 órdenes): ${tiempoMaximoPermitido} horas de material.
-    `;
-    
-    document.getElementById("resultados").style.display = "block";
-}
-</script>
-
-</body>
-</html>
+        .viabilidad-ok {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 12px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            border-left: 5px solid #28a745;
+        }
+        .viabilidad-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            border-left:
+                
 
 
 
