@@ -12,7 +12,7 @@
             color: #333;
         }
         .container {
-            max-width: 1150px; /* Ajustado para las nuevas columnas logísticas */
+            max-width: 1150px;
             background: white;
             padding: 25px;
             border-radius: 8px;
@@ -168,7 +168,7 @@
             color: white;
         }
         .badge-min {
-            background-color: #e67e22; /* Color naranja industrial para alertas preventivas */
+            background-color: #e67e22;
             color: white;
             padding: 2px 6px;
             border-radius: 3px;
@@ -207,7 +207,7 @@
         
         <div class="form-group">
             <label for="tiempoAlistamiento">Alistamiento Fijo por Orden (min):</label>
-            <input type="number" id="tiempoAlistamiento" value="30" min="0" title="Tiempo en entregar papeles, sacar cajas y despachar lo que ya está listo.">
+            <input type="number" id="tiempoAlistamiento" value="30" min="0">
         </div>
 
         <div class="form-group">
@@ -285,7 +285,6 @@ const baseDatosFamilias = {
     ]
 };
 
-// Objeto para recordar valores modificados por el usuario al cambiar de familia
 const valoresGuardados = {};
 
 function cargarPartNumbers() {
@@ -301,7 +300,6 @@ function cargarPartNumbers() {
     
     let htmlContenido = `<h3>Componentes de la Familia: ${familiaSeleccionada.toUpperCase()}</h3>`;
     
-    // Herramienta de asignación masiva rápida para ahorrar tiempo operativo en las pruebas
     htmlContenido += `
         <div class="bulk-assign">
             <strong>Asignación rápida para toda la familia:</strong>
@@ -397,28 +395,27 @@ function calcularTodo() {
         sumaMinutosImpresionTotal += tImpresionPN;
         sumaMinutosSegregacionTotal += tSegregacionPN;
 
-        // 2. REGLA DINÁMICA DE COBERTURA: Determina el número de órdenes listas según los minutos de retraso
-        let ordenesDeColchon = 2; // Margen base seguro para soportar solicitudes concurrentes diarias
+        // 2. REGLA DINÁMICA DE COBERTURA EN ÓRDENES SEGÚN EL TIEMPO
+        let ordenesDeColchon = 2; 
 
         if (tiempoProcesoPorOrden > 30) {
-            ordenesDeColchon = 5;  // Cuello de botella crítico: exige 5 órdenes pre-armadas en rack
+            ordenesDeColchon = 5;  // Cuello de botella crítico
         } else if (tiempoProcesoPorOrden > 15) {
-            ordenesDeColchon = 3;  // Carga moderada: exige 3 órdenes de protección
+            ordenesDeColchon = 3;  // Carga moderada
         } else if (tiempoProcesoPorOrden <= 3) {
-            ordenesDeColchon = 1;  // Proceso ultra rápido: con 1 orden basta, respondes al instante
+            ordenesDeColchon = 1;  // Proceso ultra rápido
         }
 
-        // El Stock Mínimo y Máximo se calcula en piezas exactas fundamentado en las necesidades operativas reales
         const stockMinimoCalculado = cantPorOrden * ordenesDeColchon;
-        const stockMaximoCalculado = cantPorOrden * (ordenesSemanales + 1); // Consumo total estimado + 1 orden de amortiguador
+        const stockMaximoCalculado = cantPorOrden * (ordenesSemanales + 1);
 
-        // Renderizar la tabla de control con datos dinámicos explícitos
+        // Renderizar la tabla de control
         const fila = document.createElement("tr");
         fila.innerHTML = `
             <td style="text-align:left;"><b>${pn}</b></td>
             <td>${cantPorOrden} pzas</td>
             <td style="color:#2980b9; font-weight:bold;">${tiempoProcesoPorOrden.toFixed(1)} min</td>
-            <td><span class="badge-min">${stockMinimoCalculated} pzas</span><br><small style="color:#555">(${ordenesDeColchon} Órd.)</small></td>
+            <td><span class="badge-min">${stockMinimoCalculado} pzas</span><br><small style="color:#555">(${ordenesDeColchon} Órd.)</small></td>
             <td><span class="badge-max">${stockMaximoCalculado} pzas</span><br><small style="color:#555">(${ordenesSemanales + 1} Órd.)</small></td>
             <td><b>${demandaTotalSemanal} pzas</b></td>
             <td><b>${tTotalVariablePN.toFixed(1)} min</b></td>
@@ -433,11 +430,9 @@ function calcularTodo() {
     const minutosTotalesCritico = minutosTotalesIdeal + sumaMinutosImpresionTotal + sumaMinutosSegregacionTotal;
     const horasTotalesCritico = minutosTotalesCritico / 60;
 
-    // Actualizar paneles visuales superiores
     document.getElementById("tiempoIdealHoras").innerText = horasTotalesIdeal.toFixed(2);
     document.getElementById("tiempoCriticoHoras").innerText = horasTotalesCritico.toFixed(2);
     
-    // Evaluar Viabilidad frente a la jornada asignada
     const statusIdealDiv = document.getElementById("statusIdeal");
     if (horasTotalesIdeal <= horasDisponibles) {
         statusIdealDiv.className = "status-badge status-ok";
