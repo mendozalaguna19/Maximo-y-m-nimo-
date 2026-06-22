@@ -302,4 +302,131 @@ function cargarPartNumbers() {
                     </div>
                 </div>
             </div>
+        `;
+    });
+
+    contenedor.innerHTML = htmlContenido;
+}
+
+function guardarEstado(pn) {
+    valoresGuardados[`cant_${pn}`] = Math.max(0, parseFloat(document.getElementById(`cant_${pn}`).value) || 0);
+    valoresGuardados[`imp_${pn}`] = Math.max(0, parseFloat(document.getElementById(`imp_${pn}`).value) || 0);
+    valoresGuardados[`seg_${pn}`] = Math.max(0, parseFloat(document.getElementById(`seg_${pn}`).value) || 0);
+}
+
+function aplicarValoresMasivos() {
+    const bCant = document.getElementById("bulk_cant").value;
+    const bImp = document.getElementById("bulk_imp").value;
+    const bSeg = document.getElementById("bulk_seg").value;
+
+    document.querySelectorAll(".ipn-cant").forEach(input => {
+        input.value = bCant;
+        const pn = input.getAttribute("data-pn");
+        document.getElementById(`imp_${pn}`).value = bImp;
+        document.getElementById(`seg_${pn}`).value = bSeg;
+        guardarEstado(pn);
+    });
+}
+
+function calcularTodo() {
+    const ordenesSemanales = Math.max(1, parseFloat(document.getElementById("ordenesSemanales").value) || 0);
+    const tiempoAlistamientoFijo = Math.max(0, parseFloat(document.getElementById("tiempoAlistamiento").value) || 0);
+    const horasDisponibles = Math.max(1, parseFloat(document.getElementById("horasDisponibles").value) || 0);
+    
+    const inputsCantidad = document.querySelectorAll(".ipn-cant");
+    const tablaCuerpo = document.getElementById("tablaCuerpo");
+    
+    if (inputsCantidad.length === 0) {
+        alert("Seleccione una familia antes de calcular.");
+        return;
+    }
+
+    tablaCuerpo.innerHTML = "";
+    let sumaMinutosVariablesTotales = 0;
+
+    inputsCantidad.forEach(input => {
+        const pn = input.getAttribute("data-pn");
+        
+        const cantPorOrden = Math.max(0, parseFloat(input.value) || 0);
+        const minImpresionPorPieza = Math.max(0, parseFloat(document.getElementById(`imp_${pn}`).value) || 0);
+        const minSegregacionPorPieza = Math.max(0, parseFloat(document.getElementById(`seg_${pn}`).value) || 0);
+        
+        // Tiempo que toma procesar UN solo componente (Impresión + Segregación)
+        const tiempoUnitarioComponente = minImpresionPorPieza + minSegregacionPorPieza;
+        const demandaTotalSemanal = cantPorOrden * ordenesSemanales;
+        
+        // Tiempo total de mano de obra requerido para este PN específico a la semana
+        const tiempoTotalVariablePN = demandaTotalSemanal * tiempoUnitarioComponente;
+        sumaMinutosVariablesTotales += tiempoTotalVariablePN;
+
+        // --- NUEVA LÓGICA DE STOCK MÍNIMO Y MÁXIMO DINÁMICO BASADO EN TIEMPO ---
+        // Factor de criticidad: Qué tanto impacta este material el tiempo disponible de la jornada semanal
+        const impactoTiempoEnJornada = (tiempoTotalVariablePN / (horasDisponibles * 60));
+        
+        let stockMinimoSeguridad, stockMaximoPermitido;
+
+        if (tiempoUnitarioComponente === 0) {
+            // Si el material no requiere tiempo de proceso (ya viene listo de proveedor externo), el mínimo es bajo.
+            stockMinimoSeguridad = Math.ceil(cantPorOrden * 1); 
+            stockMaximoPermitido = Math.ceil(cantPorOrden * 3);
+        } else {
+            // FÓRMULA LOGÍSTICA: A mayor tiempo de segregación/impresión, mayor debe ser el colchón de seguridad.
+            // Si procesarlo consume mucho tiempo, el stock mínimo se eleva dinámicamente para absorber el impacto en producción.
+            const multiplicadorDinamico = 2 + (impactoTiempoEnJornada * 5); // Escala el amortiguador según la carga de tiempo
             
+            stockMinimoSeguridad = Math.ceil(cantPorOrden * multiplicadorDinamico);
+            stockMaximoPermitido = Math.ceil(demandaTotalSemanal * 1.2); // El máximo se topa al consumo de la semana + 20%
+        }
+
+        const fila = document.createElement("tr");
+        fila.innerHTML = `
+            <td style="text-align:left;"><b>${pn}</b></td>
+            <td>${cantPorOrden}</td>
+            <td>${tiempoUnitarioComponente.toFixed(2)} min</td>
+            <td><b>${demandaTotalSemanal}</b></td>
+            <td><span class="badge-min">${stockMinimoSeguridad} pzas</span></td>
+            <td><span class="badge-max">${stockMaximoPermitido} pzas</span></td>
+            <td><b>${tiempoTotalVariablePN.toFixed(1)} min</b></td>
+        `;
+        tablaCuerpo.appendChild(fila);
+    });
+
+    // Escenarios Cruzados de Tiempos
+    const minutosTotalesIdeal = ordenesSemanales * tiempoAlistamientoFijo;
+    const horasTotalesIdeal = minutosTotalesIdeal / 60;
+
+    const minutosTotalesCritico = minutosTotalesIdeal + sumaMinutosVariablesTotales;
+    const horasTotalesCritico = minutosTotalesCritico / 60;
+
+    document.getElementById("tiempoIdealHoras").innerText = horasTotalesIdeal.toFixed(2);
+    document.getElementById("tiempoCriticoHoras").innerText = horasTotalesCritico.toFixed(2);
+    
+    // Alertas Visuales de Viabilidad
+    const statusIdealDiv = document.getElementById("statusIdeal");
+    if (horasTotalesIdeal <= horasDisponibles) {
+        statusIdealDiv.className = "status-badge status-ok";
+        statusIdealDiv.innerText = "✓ ALISTAMIENTO FLUIDO";
+    } else {
+        statusIdealDiv.className = "status-badge status-danger";
+        statusIdealDiv.innerText = "⚠️ COLAPSO EN DESPACHO";
+    }
+
+    const statusCriticoDiv = document.getElementById("statusCritico");
+    if (horasTotalesCritico <= horasDisponibles) {
+        statusCriticoDiv.className = "status-badge status-ok";
+        statusCriticoDiv.innerText = "✓ CAPACIDAD DISPONIBLE INCLUSO SIN STOCK";
+    } else if (horasTotalesCritico <= horasDisponibles * 1.15) {
+        statusCriticoDiv.className = "status-badge status-alert";
+        statusCriticoDiv.innerText = "⚠️ RIESGO ALTO (Genera retrasos si un componente llega a 0)";
+    } else {
+        statusCriticoDiv.className = "status-badge status-danger";
+        statusCriticoDiv.innerText = "❌ RETRASO SEGURO EN PRODUCCIÓN (Usa los Stocks Mínimos)";
+    }
+
+    document.getElementById("resumenOrdenes").innerHTML = `Análisis preventivo para asegurar el cumplimiento de <b>${ordenesSemanales} órdenes/semana</b>.`;
+    document.getElementById("resultados").style.display = "block";
+}
+</script>
+
+</body>
+</html>
